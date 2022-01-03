@@ -4,6 +4,9 @@
 #include<time.h>
 #include<stdarg.h>
 #include<stdbool.h>
+#include<string.h>
+
+
 
 struct monome{
 	double coef;
@@ -17,6 +20,19 @@ struct polynome {
 
 typedef struct monome monome;
 typedef struct polynome polynome;
+
+//mémoire
+
+struct memoir{
+	char nom[20];
+	polynome*poly;
+};
+
+typedef struct memoir memoir;
+
+memoir memory[100];
+
+
 
 /* fonction appelant malloc pour créer un monome donné ou polynôme vide. On ne servira que de celles là ensuite. */
 
@@ -77,13 +93,13 @@ void afficherMonome(monome*m){
 
 void afficherMonomeL(monome*m,int pos){
 	if(pos==1){
-		printf("%f",m->coef);
+		printf(" %f",m->coef);
 	}
 	else if(pos==0){
 		printf("_________");
 	}
 	else{
-		printf(" p^(%3i) ",m->degree);
+		printf(" p^(%3i) ",-1*m->degree);
 	}	
 }
 
@@ -343,7 +359,7 @@ polynome* soustraction(polynome* p1, polynome* p2){
 }
 
 
-polynome* puissance(polynome* p, int n){
+polynome* puissance(int n,polynome* p){
 	polynome*q=copie(p);
 	for(int i=1;i<n;i++){
 		q=produit(q,p);
@@ -367,7 +383,6 @@ double factorielle(int n){
 	for(int j=1;j<=n;j++){
 		i*=j;
 	}
-	(double) i;
 	return i;
 }
 
@@ -468,7 +483,7 @@ polynome*composition(polynome*p1,polynome*p2){
 	polynome*tmp_m;
 	polynome*tmp_s;
 	while(m!=NULL){
-		tmp_p=puissance(p2,m->degree);
+		tmp_p=puissance(m->degree,p2);
 		tmp_m=produitCst(m->coef,tmp_p);
 		liberer(tmp_p);
 		tmp_s=somme(p,tmp_m);
@@ -480,11 +495,189 @@ polynome*composition(polynome*p1,polynome*p2){
 	return p;
 }
 
+typedef enum {name,Coef,X,debutExposant,exposant,finExposant,plus} ou_type;
+
+void inputMemoir(){
+	char c[1000];
+	char nom[20];
+	printf("format: \"nom coef1x^degre1+coef2x^degree2-coef3x^degre4....\"\n");
+	scanf("%s %s",nom,c);
+	polynome*p=creerPolynomeVide();
+	int nbMonome=0;
+	int i=0;
+	i=0;
+	while(c[i]!= '\0'){
+		if(*(c+i)=='X'||*(c+i)=='x'||*(c+i)=='p'){
+			nbMonome++;
+		}
+		i++;
+	}
+	int degre[nbMonome];
+	double coef[nbMonome];
+	for(i=0;i<nbMonome;i++){
+		sscanf(c,"%lf%*2c%i%s",coef+i,degre+i,c);
+		//printf("%lf %i\n\n",*(coef+i),*(degre+i));
+	}
+	
+	for(i=0;i<nbMonome;i++){
+		ajouterMonomeA(p,coef[i],degre[i]);
+	}
+	i=0;
+	while(i<100&&strncmp((memory+i)->nom,"unasign",7)!=0){
+		i++;
+	}
+	if(i<100){
+		strncpy((memory+i)->nom,nom,20);
+		(memory+i)->poly=p;
+	}	
+	else{
+		printf("erreur memoire pleine");
+	}
+}
+
+void interface(){
+	char c;
+	int i;
+	char nom[20];
+	char nom2[20];
+	bool v;
+	polynome*p;
+	polynome*q;
+	polynome*temp=NULL; 
+	polynome*(*pf1)(polynome*p);
+	polynome*(*pf2)(double a,polynome*p);
+	polynome*(*pf3)(polynome*p,polynome*q);
+	pf1=derive;
+	pf2=produitCst;
+	pf3=somme; // probleme d'initialisation
+	double var=0;
+	do{
+		//prompt initial
+		printf("1 Ajouter un polynome en memoir\n2 Voire les polynome en memoire\n3 Effacer polynome en memoire\n4 Calcule sur un polynome\n5 Enregistre le dernier polynome calcule\n6 Quitter\n\n");
+		scanf("%c",&c);
+		if(c=='1'){
+			inputMemoir();
+		}
+		else if(c=='2'){
+			for(i=0;i<100;i++){
+				
+				printf("%s=",(memory+i)->nom);
+				afficherPolynome((memory+i)->poly);
+				if(strncmp((memory+i)->nom,"unasign",7)!=0){
+					break;
+				}
+			}
+		}
+		else if(c=='3'){
+			if(temp!=NULL){
+				liberer(temp);
+			}
+			printf("nom du polynome a effacer :");
+			scanf("%s",nom);
+			for(i=0;i<101;i++){
+				v=true;
+				for(int j=0;j<20;j++){
+					if(nom[j]=='\0'){
+						break;
+					}
+					if(nom[j]==*((memory+i)->nom+j)){
+					}
+					else{
+						v=false;
+						break;
+					}
+				}
+				if(v==true){
+					break;
+				}			
+			}
+			liberer((memory+i)->poly);
+			strcpy((memory+i)->nom,"unasign");	
+		}
+		else if(c=='4'){
+			if(temp!=NULL){
+				liberer(temp);
+			}
+			printf("forma : 1 f(polynome)\n\t2 f(polynome,constante)\n\t3 f(polynome,polynome)");
+			scanf("%c",&c);
+			if(c=='1'){
+				printf("derive: %p\n",derive);
+				printf("primitive: %p\n",primitive);
+				printf("toLaplace: %p\n",toLaplace);
+				printf("fromLaplace: %p\n",fromLaplace);
+				printf("format:\"pointeur nom_du_polynome\"\n");
+				scanf("%llx %s",pf1,nom);
+				i=0;
+				while(strcmp((memory+i)->nom,nom)!=0){
+					i++;
+				}
+				p=(memory+i)->poly;
+				temp=(*pf1)(p);
+			}
+			else if(c=='2'){
+				printf("produitCst: %p\n",produitCst);
+				printf("exponentiation: %p\n",puissance);
+				scanf("%llx %s %le",pf2,nom,&var);
+				printf("format:\"pointeur nom_du_polynome valeur_constante\"\n");
+				i=0;
+				while(strcmp((memory+i)->nom,nom)!=0){
+					i++;
+				}
+				p=(memory+i)->poly;
+				temp=(*pf2)(var,p);
+			}
+			else if(c=='3'){
+				printf("somme: %p\n",somme);
+				printf("soustraction: %p\n",soustraction);
+				printf("produit: %p\n",produit);
+				printf("produitDeConvolution: %p\n",produitDeConvolution);		
+				scanf("%llx %s %s",pf2,nom,nom2);
+				printf("format:\"pointeur nom_du_polynome_1 nom_du_polynome_2\"\n");
+				i=0;
+				while(strcmp((memory+i)->nom,nom)!=0){
+					i++;
+				}
+				p=(memory+i)->poly;
+				
+				i=0;
+				while(strcmp((memory+i)->nom,nom2)!=0){
+					i++;
+				}
+				q=(memory+i)->poly;
+				temp=(*pf3)(p,q);
+			} 
+			c='4';
+		}	
+		else if(c=='5'){
+			
+			printf("nom du polynome:");
+			scanf("%s",nom);
+			i=0;
+			while(strncmp((memory+i)->nom,"unasign",7)!=0){
+				i++;
+			}
+			if(i<100){
+				strcpy((memory+i)->nom,nom);
+				(memory+i)->poly=temp;
+				printf("polynome %s enregistré",nom);
+			}
+			else{
+				printf("erreur memoire pleine");
+			}
+		}
+	}while(c!='6');
+}
 
 
 
 int main(){
-	polynome*poly=creerPolynomeVide();
+	//initialistation
+	for(int i=0;i<100;i++){
+		strcpy((memory+i)->nom,"unasign");
+		(memory+i)->poly=NULL;
+	}
+// test
+/*	polynome*poly=creerPolynomeVide();
 	afficherPolynome(poly);	// print "vide"
 	monome*m1=creerMonome(0.25,2);
 	retourchariot=true;
@@ -562,17 +755,10 @@ int main(){
 	liberer(q);
 	q=composition(poly,poly);
 	afficherPolynome(q);
-
-
+*/
+	interface();
+	//afficherPolynome(memory->poly);
 }
-
-
-
-
-
-
-
-
 
 
 
